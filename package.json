@@ -1,7 +1,7 @@
 {
   "name": "cordova-plugin-zip",
-  "version": "3.1.0",
-  "description": "Unzips zip files",
+  "version": "3.2.0",
+  "description": "Unzips zip files with password",
   "cordova": {
     "id": "cordova-plugin-unzip",
     "platforms": [
@@ -11,7 +11,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/MobileChromeApps/cordova-plugin-zip.git"
+    "url": "https://github.com/jomarti/cordova-plugin-zip.git"
   },
   "keywords": [
     "ecosystem:cordova",

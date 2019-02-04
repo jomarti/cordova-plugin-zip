@@ -1,14 +1,14 @@
 # cordova-plugin-zip
 
-A Cordova plugin to unzip files in Android and iOS.
+A Cordova plugin to unzip protected files in Android and iOS.
 
 ## Installation
 
-    cordova plugin add cordova-plugin-zip
+    cordova plugin add https://github.com/jomarti/cordova-plugin-zip.git
 
 ## Usage
 
-    zip.unzip(<source zip>, <destination dir>, <callback>, [<progressCallback>]);
+    zip.unzip(<source zip>, <destination dir>, <password zip>, <callback>, [<progressCallback>]);
 
 Both source and destination arguments can be URLs obtained from the HTML File
 interface or absolute paths to files on the device.
@@ -28,6 +28,10 @@ The values `loaded` and `total` are the number of compressed bytes processed and
 file size of the zip file.
 
 ## Release Notes
+
+### 3.2.0 (Feb 19, 2019)
+* Add Zip4j (Android lib) 1.3.2 to unzipping protected files.
+* Add password parameter to unzipping protected files (iOS).
 
 ### 3.1.0 (Feb 23, 2016)
 * Updated SSZipArchive (ios lib) to 1.1

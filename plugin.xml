@@ -2,7 +2,7 @@
 <plugin xmlns="http://phonegap.com/ns/plugins/1.0"
     xmlns:android="http://schemas.android.com/apk/res/android"
     id="cordova-plugin-zip"
-    version="3.1.0">
+    version="3.2.0">
   <engines>
     <engine name="cordova" version=">=3.3.0" />
   </engines>
@@ -16,6 +16,7 @@
   </js-module>
 
   <platform name="android">
+    <source-file src="src/android/zip4j_1.3.2.jar" target-dir="libs" />
     <source-file src="src/android/Zip.java" target-dir="src/org/apache/cordova" />
 
     <config-file target="res/xml/config.xml" parent="/widget">

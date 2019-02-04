@@ -31,12 +31,13 @@
         @try {
             NSString *zipURL = [command.arguments objectAtIndex:0];
             NSString *destinationURL = [command.arguments objectAtIndex:1];
+            NSString *zipPassword = [command.arguments objectAtIndex:2];
             NSError *error;
 
             NSString *zipPath = [self pathForURL:zipURL];
             NSString *destinationPath = [self pathForURL:destinationURL];
 
-            if([SSZipArchive unzipFileAtPath:zipPath toDestination:destinationPath overwrite:YES password:nil error:&error delegate:self]) {
+            if([SSZipArchive unzipFileAtPath:zipPath toDestination:destinationPath overwrite:YES password:zipPassword error:&error delegate:self]) {
                 pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
             } else {
                 NSLog(@"%@ - %@", @"Error occurred during unzipping", [error localizedDescription]);

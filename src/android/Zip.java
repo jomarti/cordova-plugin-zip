@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.io.FileNotFoundException;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -17,8 +18,16 @@ import org.apache.cordova.CordovaResourceApi.OpenForReadResult;
 import org.apache.cordova.PluginResult;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.json.JSONArray;
+import org.json.JSONException;
+
 
 import android.util.Log;
+
+import net.lingala.zip4j.core.ZipFile;
+import net.lingala.zip4j.exception.ZipException;
+import net.lingala.zip4j.model.ZipParameters;
+import net.lingala.zip4j.util.Zip4jConstants;
 
 public class Zip extends CordovaPlugin {
 
@@ -41,24 +50,16 @@ public class Zip extends CordovaPlugin {
         });
     }
 
-    // Can't use DataInputStream because it has the wrong endian-ness.
-    private static int readInt(InputStream is) throws IOException {
-        int a = is.read();
-        int b = is.read();
-        int c = is.read();
-        int d = is.read();
-        return a | b << 8 | c << 16 | d << 24;
-    }
-
     private void unzipSync(CordovaArgs args, CallbackContext callbackContext) {
         InputStream inputStream = null;
         try {
             String zipFileName = args.getString(0);
             String outputDirectory = args.getString(1);
+            String passwordZip = args.getString(2);
 
             // Since Cordova 3.3.0 and release of File plugins, files are accessed via cdvfile://
             // Accept a path or a URI for the source zip.
-            Uri zipUri = getUriForArg(zipFileName);
+            URI zipUri = getUriForArg(zipFileName);
             Uri outputUri = getUriForArg(outputDirectory);
 
             CordovaResourceApi resourceApi = webView.getResourceApi();
@@ -84,86 +85,72 @@ public class Zip extends CordovaPlugin {
             OpenForReadResult zipFile = resourceApi.openForRead(zipUri);
             ProgressEvent progress = new ProgressEvent();
             progress.setTotal(zipFile.length);
-
-            inputStream = new BufferedInputStream(zipFile.inputStream);
-            inputStream.mark(10);
-            int magic = readInt(inputStream);
-
-            if (magic != 875721283) { // CRX identifier
-                inputStream.reset();
-            } else {
-                // CRX files contain a header. This header consists of:
-                //  * 4 bytes of magic number
-                //  * 4 bytes of CRX format version,
-                //  * 4 bytes of public key length
-                //  * 4 bytes of signature length
-                //  * the public key
-                //  * the signature
-                // and then the ordinary zip data follows. We skip over the header before creating the ZipInputStream.
-                readInt(inputStream); // version == 2.
-                int pubkeyLength = readInt(inputStream);
-                int signatureLength = readInt(inputStream);
-
-                inputStream.skip(pubkeyLength + signatureLength);
-                progress.setLoaded(16 + pubkeyLength + signatureLength);
-            }
-
-            // The inputstream is now pointing at the start of the actual zip file content.
-            ZipInputStream zis = new ZipInputStream(inputStream);
-            inputStream = zis;
-
-            ZipEntry ze;
-            byte[] buffer = new byte[32 * 1024];
-            boolean anyEntries = false;
-
-            while ((ze = zis.getNextEntry()) != null)
-            {
-                anyEntries = true;
-                String compressedName = ze.getName();
-
-                if (ze.isDirectory()) {
-                   File dir = new File(outputDirectory + compressedName);
-                   dir.mkdirs();
-                } else {
-                    File file = new File(outputDirectory + compressedName);
-                    file.getParentFile().mkdirs();
-                    if(file.exists() || file.createNewFile()){
-                        Log.w("Zip", "extracting: " + file.getPath());
-                        FileOutputStream fout = new FileOutputStream(file);
-                        int count;
-                        while ((count = zis.read(buffer)) != -1)
-                        {
-                            fout.write(buffer, 0, count);
-                        }
-                        fout.close();
-                    }
-
-                }
-                progress.addLoaded(ze.getCompressedSize());
-                updateProgress(callbackContext, progress);
-                zis.closeEntry();
-            }
+            
+            unzipTask(zipFileName, outputDirectory, passwordZip);           
 
             // final progress = 100%
             progress.setLoaded(progress.getTotal());
             updateProgress(callbackContext, progress);
 
-            if (anyEntries)
-                callbackContext.success();
-            else
-                callbackContext.error("Bad zip file");
+            callbackContext.success();
+            
+        } catch (Exception e) {
+            String errorMessage = "An error occurred while unzipping.";
+            callbackContext.error(e.getMessage());
+            Log.e(LOG_TAG, errorMessage, e);
+        }
+    }
+
+    private void zipTask(String from, String to, String password) throws Exception {
+        try {
+            String fromPath = removePathProtocolPrefix(from);
+            String toPath = removePathProtocolPrefix(to);
+
+            final ZipParameters zipParameters = new ZipParameters();
+            zipParameters.setCompressionMethod(Zip4jConstants.COMP_DEFLATE);
+            zipParameters.setCompressionLevel(Zip4jConstants.DEFLATE_LEVEL_MAXIMUM);
+            if (!password.isEmpty()) {
+                zipParameters.setEncryptFiles(true);
+                zipParameters.setEncryptionMethod(Zip4jConstants.ENC_METHOD_AES);
+                zipParameters.setAesKeyStrength(Zip4jConstants.AES_STRENGTH_256);
+                zipParameters.setPassword(password);
+            }
+            zipParameters.setIncludeRootFolder(false);
+
+            ZipFile zipFile = new ZipFile(toPath);
+            zipFile.addFolder(fromPath, zipParameters);
+
+        } catch (Exception e) {
+            String errorMessage = "An error occurred while zipping.";
+            callbackContext.error(errorMessage);
+            Log.e(LOG_TAG, errorMessage, e);
+        }
+    }
+
+    private void unzipTask(String from, String to, String password) throws Exception {
+        try {
+            String fromPath = removePathProtocolPrefix(from);
+            String toPath = removePathProtocolPrefix(to);
+
+            ZipFile zipFile = new ZipFile(fromPath);
+            if (!password.isEmpty() && zipFile.isEncrypted()) {
+                zipFile.setPassword(password);
+            }
+            zipFile.extractAll(toPath);
         } catch (Exception e) {
             String errorMessage = "An error occurred while unzipping.";
             callbackContext.error(errorMessage);
             Log.e(LOG_TAG, errorMessage, e);
-        } finally {
-            if (inputStream != null) {
-                try {
-                    inputStream.close();
-                } catch (IOException e) {
-                }
-            }
         }
+    }
+
+    private static String removePathProtocolPrefix(String path) {
+        if (path.startsWith("file://")) {
+            path = path.substring(7);
+        } else if (path.startsWith("file:")) {
+            path = path.substring(5);
+        }
+        return path.replaceAll("//", "/");
     }
 
     private void updateProgress(CallbackContext callbackContext, ProgressEvent progress) throws JSONException {

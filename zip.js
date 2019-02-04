@@ -8,7 +8,7 @@ function newProgressEvent(result) {
     return event;
 }
 
-exports.unzip = function(fileName, outputDirectory, callback, progressCallback) {
+exports.unzip = function(fileName, outputDirectory, password, callback, progressCallback) {
     var win = function(result) {
         if (result && typeof result.loaded != "undefined") {
             if (progressCallback) {
@@ -23,5 +23,5 @@ exports.unzip = function(fileName, outputDirectory, callback, progressCallback) 
             callback(-1);
         }
     };
-    exec(win, fail, 'Zip', 'unzip', [fileName, outputDirectory]);
+    exec(win, fail, 'Zip', 'unzip', [fileName, outputDirectory, password]);
 };
